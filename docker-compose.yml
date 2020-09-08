@@ -1,0 +1,13 @@
+version: "3.3"
+
+services:
+  crawler:
+    container_name: "scrapy-docker"
+    image: scrapy-docker:lastest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+        - "6800:6800"
+    volumes:
+      - './:/app'
