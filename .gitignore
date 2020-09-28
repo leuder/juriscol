@@ -16,4 +16,6 @@
 **/secrets.dev.yaml
 **/values.dev.yaml
 **/.scrapy
+data*.json
+data_json*
 env

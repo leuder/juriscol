@@ -58,5 +58,5 @@ WORKDIR /app
 COPY . /app
 
 COPY ./requirements.txt /app/requirements.txt
-RUN pip3 install --upgrade pip
+RUN pip3 install --upgrade pip && python -m spacy download es
 
