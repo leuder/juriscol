@@ -7,34 +7,59 @@ from datetime import datetime
 import scrapy
 from itemloaders.processors import Identity, Join, MapCompose, TakeFirst
 from scrapy.loader import ItemLoader
+import re
 
 
 def date_convert(value):
-    return datetime.strptime(value, "%Y-%m-%d").date()
+    return datetime.strptime(value, "%Y-%m-%d")
+
+
+def magister_clean(value):
+    return re.sub(r'^:', '', value).upper()
+
+
+def participant_clean(value):
+    return re.sub(r'^.', '', value).upper()
 
 
 class StripFirstItemLoader(ItemLoader):
-    default_output_processor = TakeFirst()
     default_input_processor = MapCompose(str.strip)
+    default_output_processor = TakeFirst()
 
 
 class JuriscolItem(scrapy.Item):
-    # define the fields for your item here like:
-    demandante = scrapy.Field()
-    demandado = scrapy.Field()
-    expediente = scrapy.Field()
-    entidades = scrapy.Field(input_processor=Identity(),
-                             output_processor=Identity())
-    fecha_sentencia = scrapy.Field(
+    _id = scrapy.Field()
+    file_id = scrapy.Field()
+    date = scrapy.Field(
         input_processor=MapCompose(str.strip, date_convert))
-    magistrado = scrapy.Field()
-    palabras = scrapy.Field(input_processor=Identity(),
-                            output_processor=Identity())
-    recibo_relatoria = scrapy.Field(
+    sentence_id = scrapy.Field()
+    magistrate = scrapy.Field(
+        input_processor=MapCompose(str.strip, magister_clean),
+        output_processor=Identity())
+    magistrate_av = scrapy.Field(
+        input_processor=MapCompose(str.strip, magister_clean),
+        output_processor=Identity())
+    magistrate_apv = scrapy.Field(
+        input_processor=MapCompose(str.strip, magister_clean),
+        output_processor=Identity())
+    magistrate_sv = scrapy.Field(
+        input_processor=MapCompose(str.strip, magister_clean),
+        output_processor=Identity())
+    magistrate_spv = scrapy.Field(
+        input_processor=MapCompose(str.strip, magister_clean),
+        output_processor=Identity())
+    plaintiff = scrapy.Field(
+        input_processor=MapCompose(participant_clean, str.strip))
+    defendant = scrapy.Field(
+        input_processor=MapCompose(participant_clean, str.strip))
+    report_receipt_at = scrapy.Field(
         input_processor=MapCompose(str.strip, date_convert))
-    sentencia_id = scrapy.Field()
-    tema = scrapy.Field()
-    tipo = scrapy.Field()
-    texto_sentencia = scrapy.Field()
+    report_receipt_at = scrapy.Field()
+    topic = scrapy.Field()
+    text = scrapy.Field()
     url = scrapy.Field()
-    resolución = scrapy.Field()
+    source = scrapy.Field()
+    judicature = scrapy.Field(
+        input_processor=Identity(), output_processor=Identity())
+    participants = scrapy.Field(
+        input_processor=Identity(), output_processor=Identity())

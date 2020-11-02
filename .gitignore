@@ -19,3 +19,5 @@
 data*.json
 data_json*
 env
+debug.log
+.*cache

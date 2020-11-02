@@ -1,68 +1,91 @@
 import scrapy
-from juriscol.items import StripFirstItemLoader, JuriscolItem
+from bs4 import BeautifulSoup
+from juriscol.items import JuriscolItem, StripFirstItemLoader
 from nlp_pos.transform import SpacyDoc
+
+# Contendor sentencias=//tr[contains(@onmouseover, "uno(this") and position()>584]
+# Expediente=./td/p[1]/strong[contains(.,"Expediente")]/following-sibling::text()[1]
+# Fecha sentencia=./td/p[1]/strong[contains(.,"Fecha sentencia")]/following-sibling::text()[1]
+# Sentencia=./td/p[1]/strong[contains(.,"Sentencia")]/following-sibling::a/text()
+# URL Sentencia=./td/p[1]/strong[contains(.,"Sentencia")]/following-sibling::a/@href
+# Magistrado Ponente=./td/p[1]/strong[contains(text(),"Magistrado Ponente")]/following-sibling::text()[1]
+# Magistrado AV=./td/p[1]/strong[contains(text(),"Magistrado Ponente")]/following-sibling::text()[1]
+# Magistrado Ponente=./td/p[1]/strong[contains(text(),"Magistrado Ponente")]/following-sibling::text()[1]
+# Magistrado Aclaracion Voto=./td/p[1]/strong[starts-with(.,"AV")]/following-sibling::text()[1]
+# Magistrado Aclaracion PArcial Voto=./td/p[1]/strong[starts-with(.,"APV")]/following-sibling::text()[1]
+# Magistrado Salvamento Voto=./td/p[1]/strong[starts-with(.,"SV") or starts-with(.,"PV") or starts-with(.,"SOV")]/following-sibling::text()[1]
+# Magistrado Salvamento Parcial Voto=./td/p[1]/strong[starts-with(.,"SPV")]/following-sibling::text()[1]
+# Demandate VS Demandado=./td/p[1]/strong[starts-with(.,"Demandante")]/following-sibling::text()[1]
+# Tema=./td/p[2]/strong[text()="Tema:"]/following-sibling::text()[1]
+# Recibo Relatoria=./td/p[2]/strong[contains(text(),"Recibo Relatoria")]/following-sibling::text()[1]
+# Pagina siguiente=//*[@class="pagination"]//a[text()="Siguiente »"]
 
 
 class CorteConstitucionalSpider(scrapy.Spider):
     page: int = 0
-    # anios = getattr(self, 'anios', 2019)
+
     name = 'corteconstitucional'
     allowed_domains = ['www.corteconstitucional.gov.co']
-    # start_urls = [
-    #     f'https://www.corteconstitucional.gov.co/relatoria/radicador/buscar.php?anios={anios}&pg={page}']
+    custom_settings = {
+        'CONCURRENT_REQUESTS': 24,
+        'FEED_EXPORT_ENCODING': 'utf-8'
+    }
 
     def start_requests(self):
-        for anios in range(16, 20):
+        anios_init = int(getattr(self, 'anios_init', 19))
+        anios_limit = int(getattr(self, 'anios_limit', 19))
+        for anios in range(anios_init, anios_limit+1):
             yield scrapy.Request(f'https://www.corteconstitucional.gov.co/relatoria/radicador/buscar.php?anios={anios}&pg={self.page}')
 
     def parse(self, response):
-        for sentencia_item in response.xpath('//tr[contains(@onmouseover, "uno(this")]'):
+        for sentence_item in response.xpath('//tr[contains(@onmouseover, "uno(this")]'):
             try:
-
-                if not len(sentencia_item.xpath('./td/p[1]//text()[2]').get().strip()):
-                    continue
-
-                item = StripFirstItemLoader(JuriscolItem(), sentencia_item)
-                item.add_xpath("expediente", "./td/p[1]/text()[2]")
+                item = StripFirstItemLoader(JuriscolItem(), sentence_item)
+                # First paragraph
                 item.add_xpath(
-                    "fecha_sentencia", './td/p[1]/strong[contains(text(),"Fecha sentencia")]/following-sibling::text()[1]')
-                item.add_xpath("sentencia_id", "./td/p[1]//a/text()[1]")
+                    "file_id", './td/p[1]/strong[contains(.,"Expediente")]/following-sibling::text()[1]')
+                item.add_xpath(
+                    "date", './td/p[1]/strong[contains(.,"Fecha sentencia")]/following-sibling::text()[1]')
+                item.add_xpath(
+                    "sentence_id", './td/p[1]/strong[contains(.,"Sentencia")]/following-sibling::a/text()')
+                item.add_xpath(
+                    "magistrate", './td/p[1]/strong[contains(.,"Magistrado Ponente")]/following-sibling::text()[1]')
+                item.add_xpath(
+                    "magistrate_av", './td/p[1]/strong[starts-with(.,"AV")]/following-sibling::text()[1]')
+                item.add_xpath(
+                    "magistrate_apv", './td/p[1]/strong[starts-with(.,"APV")]/following-sibling::text()[1]')
+                item.add_xpath(
+                    "magistrate_sv", './td/p[1]/strong[starts-with(.,"SV") or starts-with(.,"PV") or starts-with(.,"SOV")]/following-sibling::text()[1]')
+                item.add_xpath(
+                    "magistrate_spv", './td/p[1]/strong[starts-with(.,"SPV")]/following-sibling::text()[1]')
+
+                pair = sentence_item.xpath(
+                    './td/p[1]/strong[starts-with(.,"Demandante")]/following-sibling::text()[1]').get().split("VS")
+                item.add_value("plaintiff", pair[0])
+                item.add_value("defendant", pair[1] if len(pair) > 1 else None)
 
                 item.add_xpath(
-                    "magistrado", './td/p[1]/strong[contains(text(),"Magistrado Ponente")]/following-sibling::text()[1]')
-
-                pair = sentencia_item.xpath(
-                    './td/p[1]/strong[contains(text(),"Demandante")]/following-sibling::text()[1]').get().split("VS.")
-                item.add_value("demandante", pair[0])
-                item.add_value("demandado", pair[1] if len(pair) > 1 else None)
-
+                    "topic", './td/p[2]/strong[text()="Tema:"]/following-sibling::text()[1]')
                 item.add_xpath(
-                    "tema", './td/p[2]/strong[text()="Tema:"]/following-sibling::text()[1]')
-                item.add_xpath(
-                    "recibo_relatoria", './td/p[2]/strong[contains(text(),"Recibo Relatoria")]/following-sibling::text()[1]')
+                    "report_receipt_at", './td/p[2]/strong[contains(text(),"Recibo Relatoria")]/following-sibling::text()[1]')
 
+                # sentence's text
                 yield response.follow(
-                    sentencia_item.css('a::attr(href)').get(),
-                    callback=self.parse_sentencia,
-                    cb_kwargs={'item': item})
-            except:
-                print("DDDD-----------------")
-                print(sentencia_item.xpath("./td/p[1]/text()[2]").extract())
-                print(sentencia_item.xpath(
-                    './td/p[1]/strong[contains(text(),"Demandante")]/following-sibling::text()[1]').get().split("VS."))
+                    sentence_item.xpath(
+                        './td/p[1]/strong[contains(.,"Sentencia")]/following-sibling::a/@href').get(),
+                    callback=self.parse_text, cb_kwargs={'item': item})
+            except Exception:
                 raise
 
         next_page = response.xpath(
             '//*[@class="pagination"]//a[text()="Siguiente »"]').get()
-        if next_page is not None:
+        if next_page:
             yield response.follow(next_page, self.parse)
 
-    def parse_sentencia(self, response, item):
+    def parse_text(self, response, item, **kwargs):
+        soup = BeautifulSoup(response.text, 'lxml')
+        txt = soup.div.get_text()
+        item.add_value('text', txt)
         item.add_value('url', response.url)
-        txt = "".join(response.xpath(
-            '//div[@class="WordSection1"]//text()').extract())
-        item.add_value('texto_sentencia', txt)
-        doc = SpacyDoc(txt)
-        item.add_value('entidades', doc.entities)
-        item.add_value('palabras', doc.pos)
-        return item.load_item()
+        item.add_value('source', self.name)
+        yield item.load_item()
